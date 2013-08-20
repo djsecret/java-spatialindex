@@ -29,9 +29,10 @@
 
 package spatialindex.rtree;
 
-import java.util.*;
+import spatialindex.spatialindex.Region;
+import spatialindex.spatialindex.SpatialIndex;
 
-import spatialindex.spatialindex.*;
+import java.util.*;
 
 public class Index extends Node
 {
@@ -44,7 +45,7 @@ public class Index extends Node
 	{
 		if (m_level == level) return this;
 
-		pathBuffer.push(new Integer(m_identifier));
+		pathBuffer.push(m_identifier);
 
 		int child = 0;
 
@@ -77,7 +78,7 @@ public class Index extends Node
 
 	protected Leaf findLeaf(Region mbr, int id, Stack pathBuffer)
 	{
-		pathBuffer.push(new Integer(m_identifier));
+		pathBuffer.push(m_identifier);
 
 		for (int cChild = 0; cChild < m_children; cChild++)
 		{
@@ -98,7 +99,7 @@ public class Index extends Node
 	{
 		m_pTree.m_stats.m_splits++;
 
-		ArrayList g1 = new ArrayList(), g2 = new ArrayList();
+		List<Integer> g1 = new ArrayList<Integer>(), g2 = new ArrayList<Integer>();
 
 		switch (m_pTree.m_treeVariant)
 		{
@@ -120,13 +121,13 @@ public class Index extends Node
 
 		for (cIndex = 0; cIndex < g1.size(); cIndex++)
 		{
-			int i = ((Integer) g1.get(cIndex)).intValue();
+			int i = g1.get(cIndex);
 			left.insertEntry(null, m_pMBR[i], m_pIdentifier[i]);
 		}
 
 		for (cIndex = 0; cIndex < g2.size(); cIndex++)
 		{
-			int i = ((Integer) g2.get(cIndex)).intValue();
+			int i = g2.get(cIndex);
 			right.insertEntry(null, m_pMBR[i], m_pIdentifier[i]);
 		}
 
@@ -248,7 +249,7 @@ public class Index extends Node
 		return entries[best].m_id;
 	}
 
-	protected void adjustTree(Node n, Stack pathBuffer)
+	protected void adjustTree(Node n, Stack<Integer> pathBuffer)
 	{
 		m_pTree.m_stats.m_adjustments++;
 
@@ -263,7 +264,7 @@ public class Index extends Node
 		//   1. the NEW child MBR is not contained.
 		//   2. the OLD child MBR is touching.
 		boolean b = m_nodeMBR.contains(n.m_nodeMBR);
-		boolean recalc = (! b) ? true : m_nodeMBR.touches(m_pMBR[child]);
+		boolean recalc = (! b) || m_nodeMBR.touches(m_pMBR[child]);
 
 		m_pMBR[child] = (Region) n.m_nodeMBR.clone();
 
@@ -286,13 +287,13 @@ public class Index extends Node
 
 		if (recalc && ! pathBuffer.empty())
 		{
-			int cParent = ((Integer) pathBuffer.pop()).intValue();
+			int cParent = pathBuffer.pop();
 			Index p = (Index) m_pTree.readNode(cParent);
 			p.adjustTree(this, pathBuffer);
 		}
 	}
 
-	protected void adjustTree(Node n1, Node n2, Stack pathBuffer, boolean[] overflowTable)
+	protected void adjustTree(Node n1, Node n2, Stack<Integer> pathBuffer, boolean[] overflowTable)
 	{
 		m_pTree.m_stats.m_adjustments++;
 
@@ -307,7 +308,7 @@ public class Index extends Node
 		//   1. the NEW child MBR is not contained.
 		//   2. the OLD child MBR is touching.
 		boolean b = m_nodeMBR.contains(n1.m_nodeMBR);
-		boolean recalc = (! b) ? true : m_nodeMBR.touches(m_pMBR[child]);
+		boolean recalc = (! b) || m_nodeMBR.touches(m_pMBR[child]);
 
 		m_pMBR[child] = (Region) n1.m_nodeMBR.clone();
 
@@ -336,7 +337,7 @@ public class Index extends Node
 		// In all other cases insertData above took care of adjustment.
 		if (! adjusted && recalc && ! pathBuffer.empty())
 		{
-			int cParent = ((Integer) pathBuffer.pop()).intValue();
+			int cParent = pathBuffer.pop();
 			Index p = (Index) m_pTree.readNode(cParent);
 			p.adjustTree(this, pathBuffer);
 		}

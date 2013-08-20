@@ -31,7 +31,7 @@
 
 package spatialindex.spatialindex;
 
-import java.util.*;
+import java.util.LinkedList;
 
 public class RWLock
 {
@@ -39,7 +39,7 @@ public class RWLock
 	private int waiting_readers;
 	private int active_writers;
 
-	private final LinkedList writer_locks = new LinkedList();
+	private final LinkedList<Object> writer_locks = new LinkedList<Object>();
 
 	public synchronized void read_lock()
 	{
@@ -48,7 +48,7 @@ public class RWLock
 		else
 		{
 			++waiting_readers;
-			try{ wait(); } catch (InterruptedException e) {}
+			try{ wait(); } catch (InterruptedException ignored) {}
 		}
 	}
 

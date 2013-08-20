@@ -29,8 +29,13 @@
 
 package spatialindex.spatialindex;
 
-import java.io.*;
-import spatialindex.storagemanager.*;
+import spatialindex.storagemanager.DiskStorageManager;
+import spatialindex.storagemanager.IStorageManager;
+import spatialindex.storagemanager.MemoryStorageManager;
+import spatialindex.storagemanager.PropertySet;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
 public class SpatialIndex
 {

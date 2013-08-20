@@ -29,9 +29,12 @@
 
 package spatialindex.rtree;
 
-import java.util.*;
+import spatialindex.spatialindex.Region;
+import spatialindex.spatialindex.SpatialIndex;
 
-import spatialindex.spatialindex.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
 
 public class Leaf extends Node
 {
@@ -59,7 +62,8 @@ public class Leaf extends Node
 	{
 		m_pTree.m_stats.m_splits++;
 
-		ArrayList g1 = new ArrayList(), g2 = new ArrayList();
+		List<Integer> g1 = new ArrayList<Integer>(),
+                g2 = new ArrayList<Integer>();
 
 		switch (m_pTree.m_treeVariant)
 		{
@@ -81,7 +85,7 @@ public class Leaf extends Node
 
 		for (cIndex = 0; cIndex < g1.size(); cIndex++)
 		{
-			int i = ((Integer) g1.get(cIndex)).intValue();
+			int i = g1.get(cIndex);
 			left.insertEntry(m_pData[i], m_pMBR[i], m_pIdentifier[i]);
 
 			// we don't want to delete the data array from this node's destructor!
@@ -90,7 +94,7 @@ public class Leaf extends Node
 
 		for (cIndex = 0; cIndex < g2.size(); cIndex++)
 		{
-			int i = ((Integer) g2.get(cIndex)).intValue();
+			int i = g2.get(cIndex);
 			right.insertEntry(m_pData[i], m_pMBR[i], m_pIdentifier[i]);
 
 			// we don't want to delete the data array from this node's destructor!
@@ -103,7 +107,7 @@ public class Leaf extends Node
 		return ret;
 	}
 
-	protected void deleteData(int id, Stack pathBuffer)
+	protected void deleteData(int id, Stack<Integer> pathBuffer)
 	{
 		int child;
 		for (child = 0; child < m_children; child++)
@@ -114,7 +118,7 @@ public class Leaf extends Node
 		deleteEntry(child);
 		m_pTree.writeNode(this);
 
-		Stack toReinsert = new Stack();
+		Stack<Node> toReinsert = new Stack<Node>();
 		condenseTree(toReinsert, pathBuffer);
 
 		// re-insert eliminated nodes.
@@ -129,9 +133,9 @@ public class Leaf extends Node
 				boolean[] overflowTable = new boolean[m_pTree.m_stats.m_treeHeight];
 				for (int cLevel = 0; cLevel < m_pTree.m_stats.m_treeHeight; cLevel++) overflowTable[cLevel] = false;
 
-				m_pTree.insertData_impl(n.m_pData[cChild],
-																n.m_pMBR[cChild], n.m_pIdentifier[cChild],
-																n.m_level, overflowTable);
+                m_pTree.insertData_impl(n.m_pData[cChild],
+                        n.m_pMBR[cChild], n.m_pIdentifier[cChild],
+                        n.m_level, overflowTable);
 				n.m_pData[cChild] = null;
 			}
 		}

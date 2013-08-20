@@ -29,14 +29,15 @@
 
 package spatialindex.storagemanager;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public abstract class Buffer implements IBuffer
 {
 	int m_capacity = 10;
 	boolean m_bWriteThrough = false;
 	IStorageManager m_storageManager = null;
-	HashMap m_buffer = new HashMap();
+	Map<Integer,Entry> m_buffer = new HashMap<Integer,Entry>();
 	long m_hits = 0;
 
 	abstract void addEntry(int id, Entry entry);
@@ -52,7 +53,7 @@ public abstract class Buffer implements IBuffer
 	public byte[] loadByteArray(final int id)
 	{
 		byte[] ret = null;
-		Entry e = (Entry) m_buffer.get(new Integer(id));
+		Entry e = m_buffer.get(id);
 
 		if (e != null)
 		{
@@ -87,13 +88,13 @@ public abstract class Buffer implements IBuffer
 				m_storageManager.storeByteArray(id, data);
 			}
 
-			Entry e = (Entry) m_buffer.get(new Integer(id));
+			Entry e = m_buffer.get(id);
 			if (e != null)
 			{
 				e.m_data = new byte[data.length];
 				System.arraycopy(data, 0, e.m_data, 0, data.length);
 
-				if (m_bWriteThrough == false)
+				if (!m_bWriteThrough)
 				{
 					e.m_bDirty = true;
 					m_hits++;
@@ -106,7 +107,7 @@ public abstract class Buffer implements IBuffer
 			else
 			{
 				e = new Entry(data);
-				if (m_bWriteThrough == false) e.m_bDirty = true;
+				if (!m_bWriteThrough) e.m_bDirty = true;
   			addEntry(id, e);
 			}
 		}
@@ -115,11 +116,10 @@ public abstract class Buffer implements IBuffer
 	}
 	public void deleteByteArray(final int id)
 	{
-		Integer ID = new Integer(id);
-		Entry e = (Entry) m_buffer.get(ID);
+		Entry e = m_buffer.get(id);
 		if (e != null)
 		{
-			m_buffer.remove(ID);
+			m_buffer.remove(id);
 		}
 
 		m_storageManager.deleteByteArray(id);
@@ -127,30 +127,23 @@ public abstract class Buffer implements IBuffer
 
 	public void flush()
 	{
-		Iterator it = m_buffer.entrySet().iterator();
-
-		while (it.hasNext())
-		{
-			Map.Entry me = (Map.Entry) it.next();
-			Entry e = (Entry) me.getValue();
-			int id = ((Integer) me.getKey()).intValue();
-			if (e.m_bDirty) m_storageManager.storeByteArray(id, e.m_data);
+        for (Map.Entry<Integer, Entry> me : m_buffer.entrySet()) {
+			Entry e = me.getValue();
+			int id = me.getKey();
+			if (e.m_bDirty) {
+                m_storageManager.storeByteArray(id, e.m_data);
+            }
 		}
-
 		m_storageManager.flush();
 	}
+
 	public void clear()
 	{
-		Iterator it = m_buffer.entrySet().iterator();
-
-		while (it.hasNext())
-		{
-			Map.Entry me = (Map.Entry) it.next();
-			Entry e = (Entry) me.getValue();
-
+		for (Map.Entry<Integer, Entry> me : m_buffer.entrySet()) {
+			Entry e = me.getValue();
 			if (e.m_bDirty)
 			{
-				int id = ((Integer) me.getKey()).intValue();
+				int id = me.getKey();
 				m_storageManager.storeByteArray(id, e.m_data);
 			}
 		}

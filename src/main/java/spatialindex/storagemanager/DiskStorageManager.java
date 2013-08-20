@@ -29,8 +29,11 @@
 
 package spatialindex.storagemanager;
 
+import java.io.EOFException;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.*;
-import java.io.*;
 
 public class DiskStorageManager implements IStorageManager
 {
@@ -38,12 +41,12 @@ public class DiskStorageManager implements IStorageManager
 	private RandomAccessFile m_indexFile = null;
 	private int m_pageSize = 0;
 	private int m_nextPage = -1;
-	private TreeSet m_emptyPages = new TreeSet();
-	private HashMap m_pageIndex = new HashMap();
+	private TreeSet<Integer> m_emptyPages = new TreeSet<Integer>();
+	private Map<Integer,Entry> m_pageIndex = new HashMap<Integer,Entry>();
 	private byte[] m_buffer = null;
 
 	public DiskStorageManager(PropertySet ps)
-		throws SecurityException, NullPointerException, IOException, FileNotFoundException, IllegalArgumentException
+		throws SecurityException, NullPointerException, IOException, IllegalArgumentException
 	{
 		Object var;
 
@@ -54,7 +57,7 @@ public class DiskStorageManager implements IStorageManager
 		if (var != null)
 		{
 			if (! (var instanceof Boolean)) throw new IllegalArgumentException("Property Overwrite must be a Boolean");
-			bOverwrite = ((Boolean) var).booleanValue();
+			bOverwrite = ((Boolean) var);
 		}
 
 		// storage filename.
@@ -68,7 +71,7 @@ public class DiskStorageManager implements IStorageManager
 			File dataFile = new File((String) var + ".dat");
 
 			// check if files exist.
-			if (bOverwrite == false && (! indexFile.exists() || ! dataFile.exists())) bOverwrite = true;
+			if (!bOverwrite  && (! indexFile.exists() || ! dataFile.exists())) bOverwrite = true;
 
 			if (bOverwrite)
 			{
@@ -76,10 +79,10 @@ public class DiskStorageManager implements IStorageManager
 				if (dataFile.exists()) dataFile.delete();
 
 				boolean b = indexFile.createNewFile();
-				if (b == false) throw new IOException("Index file cannot be opened.");
+				if (!b) throw new IOException("Index file cannot be opened.");
 
 				b = dataFile.createNewFile();
-				if (b == false) throw new IOException("Data file cannot be opened.");
+				if (!b) throw new IOException("Data file cannot be opened.");
 			}
 
 			m_indexFile = new RandomAccessFile(indexFile, "rw");
@@ -91,14 +94,14 @@ public class DiskStorageManager implements IStorageManager
 		}
 
 		// find page size.
-		if (bOverwrite == true)
+		if (bOverwrite)
 		{
 			var = ps.getProperty("PageSize");
 
 			if (var != null)
 			{
 				if (! (var instanceof Integer)) throw new IllegalArgumentException("Property PageSize must be an Integer");
-				m_pageSize = ((Integer) var).intValue();
+				m_pageSize = ((Integer) var);
 				m_nextPage = 0;
 			}
 			else
@@ -130,7 +133,7 @@ public class DiskStorageManager implements IStorageManager
 		// create buffer.
 		m_buffer = new byte[m_pageSize];
 
-		if (bOverwrite == false)
+		if (!bOverwrite)
 		{
 			int count, id, page;
 
@@ -142,7 +145,7 @@ public class DiskStorageManager implements IStorageManager
 				for (int cCount = 0; cCount < count; cCount++)
 				{
 					page = m_indexFile.readInt();
-					m_emptyPages.add(new Integer(page));
+					m_emptyPages.add(page);
 				}
 
 				// load index table in memory.
@@ -160,9 +163,9 @@ public class DiskStorageManager implements IStorageManager
 					for (int cCount2 = 0; cCount2 < count2; cCount2++)
 					{
 						page = m_indexFile.readInt();
-						e.m_pages.add(new Integer(page));
+						e.m_pages.add(page);
 					}
-					m_pageIndex.put(new Integer(id), e);
+					m_pageIndex.put(id, e);
 				}
 			}
 			catch (EOFException ex)
@@ -189,7 +192,7 @@ public class DiskStorageManager implements IStorageManager
 			Iterator it = m_emptyPages.iterator();
 			while (it.hasNext())
 			{
-				page = ((Integer) it.next()).intValue();
+				page = ((Integer) it.next());
 				m_indexFile.writeInt(page);
 			}
 
@@ -201,19 +204,19 @@ public class DiskStorageManager implements IStorageManager
 			while (it.hasNext())
 			{
 				Map.Entry me = (Map.Entry) it.next();
-				id = ((Integer) me.getKey()).intValue();
+				id = ((Integer) me.getKey());
 				m_indexFile.writeInt(id);
 
-				Entry e = (Entry) me.getValue();
-				count = e.m_length;
+				Entry entry = (Entry) me.getValue();
+				count = entry.m_length;
 				m_indexFile.writeInt(count);
 
-				count = e.m_pages.size();
+				count = entry.m_pages.size();
 				m_indexFile.writeInt(count);
 
 				for (int cIndex = 0; cIndex < count; cIndex++)
 				{
-					page = ((Integer) e.m_pages.get(cIndex)).intValue();
+					page = entry.m_pages.get(cIndex);
 					m_indexFile.writeInt(page);
 				}
 			}
@@ -226,22 +229,22 @@ public class DiskStorageManager implements IStorageManager
 
 	public byte[] loadByteArray(final int id)
 	{
-		Entry e = (Entry) m_pageIndex.get(new Integer(id));
-		if (e == null) throw new InvalidPageException(id);
+		Entry entry = m_pageIndex.get(id);
+		if (entry == null) throw new InvalidPageException(id);
 
 		int cNext = 0;
-		int cTotal = e.m_pages.size();
+		int cTotal = entry.m_pages.size();
 
-		byte[] data = new byte[e.m_length];
+		byte[] data = new byte[entry.m_length];
 		int cIndex = 0;
 		int cLen;
-		int cRem = e.m_length;
+		int cRem = entry.m_length;
 
 		do
 		{
 			try
 			{
-				m_dataFile.seek(((Integer) e.m_pages.get(cNext)).intValue() * m_pageSize);
+				m_dataFile.seek(entry.m_pages.get(cNext) * m_pageSize);
 				int bytesread = m_dataFile.read(m_buffer);
 				if (bytesread != m_pageSize) throw new IllegalStateException("Corrupted data file.");
 			}
@@ -278,9 +281,9 @@ public class DiskStorageManager implements IStorageManager
 			{
 				if (! m_emptyPages.isEmpty())
 				{
-					Integer i = (Integer) m_emptyPages.first();
+					Integer i = m_emptyPages.first();
 					m_emptyPages.remove(i);
-					cPage = i.intValue();
+					cPage = i;
 				}
 				else
 				{
@@ -303,21 +306,21 @@ public class DiskStorageManager implements IStorageManager
 
 				cIndex += cLen;
 				cRem -= cLen;
-				e.m_pages.add(new Integer(cPage));
+				e.m_pages.add(cPage);
 			}
 
-			Integer i = (Integer) e.m_pages.get(0);
+			Integer i = e.m_pages.get(0);
 			m_pageIndex.put(i, e);
 
-			return i.intValue();
+			return i;
 		}
 		else
 		{
 			// find the entry.
-			Entry oldEntry = (Entry) m_pageIndex.get(new Integer(id));
+			Entry oldEntry = m_pageIndex.get(id);
 			if (oldEntry == null) throw new InvalidPageException(id);
 
-			m_pageIndex.remove(new Integer(id));
+			m_pageIndex.remove(id);
 
 			Entry e = new Entry();
 			e.m_length = data.length;
@@ -331,14 +334,14 @@ public class DiskStorageManager implements IStorageManager
 			{
 				if (cNext < oldEntry.m_pages.size())
 				{
-					cPage = ((Integer) oldEntry.m_pages.get(cNext)).intValue();
+					cPage = oldEntry.m_pages.get(cNext);
 					cNext++;
 				}
 				else if (! m_emptyPages.isEmpty())
 				{
-					Integer i = (Integer) m_emptyPages.first();
+					Integer i = m_emptyPages.first();
 					m_emptyPages.remove(i);
-					cPage = i.intValue();
+					cPage = i;
 				}
 				else
 				{
@@ -361,7 +364,7 @@ public class DiskStorageManager implements IStorageManager
 
 				cIndex += cLen;
 				cRem -= cLen;
-				e.m_pages.add(new Integer(cPage));
+				e.m_pages.add(cPage);
 			}
 
 			while (cNext < oldEntry.m_pages.size())
@@ -370,20 +373,20 @@ public class DiskStorageManager implements IStorageManager
 				cNext++;
 			}
 
-			Integer i = (Integer) e.m_pages.get(0);
+			Integer i = e.m_pages.get(0);
 			m_pageIndex.put(i, e);
 
-			return i.intValue();
+			return i;
 		}
 	}
 
 	public void deleteByteArray(final int id)
 	{
 		// find the entry.
-		Entry e = (Entry) m_pageIndex.get(new Integer(id));
+		Entry e = m_pageIndex.get(id);
 		if (e == null) throw new InvalidPageException(id);
 
-		m_pageIndex.remove(new Integer(id));
+		m_pageIndex.remove(id);
 
 		for (int cIndex = 0; cIndex < e.m_pages.size(); cIndex++)
 		{
@@ -399,6 +402,6 @@ public class DiskStorageManager implements IStorageManager
 	class Entry
 	{
 		int m_length = 0;
-		ArrayList m_pages = new ArrayList();
+		List<Integer> m_pages = new ArrayList<Integer>();
 	}
 }

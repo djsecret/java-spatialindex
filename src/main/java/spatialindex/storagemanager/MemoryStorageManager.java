@@ -29,12 +29,14 @@
 
 package spatialindex.storagemanager;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
 
 public class MemoryStorageManager implements IStorageManager
 {
-	private ArrayList m_buffer = new ArrayList();
-	private Stack m_emptyPages = new Stack();
+	private List<Entry> m_buffer = new ArrayList<Entry>();
+	private Stack<Integer> m_emptyPages = new Stack<Integer>();
 
 	public void flush()
 	{
@@ -46,7 +48,7 @@ public class MemoryStorageManager implements IStorageManager
 
 		try
 		{
-			e = (Entry) m_buffer.get(id);
+			e = m_buffer.get(id);
 		}
 		catch (IndexOutOfBoundsException ex)
 		{
@@ -72,7 +74,7 @@ public class MemoryStorageManager implements IStorageManager
 			}
 			else
 			{
-				ret = ((Integer) m_emptyPages.pop()).intValue();
+				ret = m_emptyPages.pop();
 				m_buffer.set(ret, e);
 			}
 		}
@@ -90,7 +92,8 @@ public class MemoryStorageManager implements IStorageManager
 		Entry e = null;
 		try
 		{
-			e = (Entry) m_buffer.get(id);
+			e = m_buffer.get(id);
+            // TODO:
 		}
 		catch (IndexOutOfBoundsException ex)
 		{
@@ -98,7 +101,7 @@ public class MemoryStorageManager implements IStorageManager
 		}
 
 		m_buffer.set(id, null);
-		m_emptyPages.push(new Integer(id));
+		m_emptyPages.push(id);
 	}
 
 	class Entry

@@ -29,10 +29,13 @@
 
 package spatialindex.rtree;
 
-import java.util.*;
-import java.io.*;
+import spatialindex.spatialindex.INode;
+import spatialindex.spatialindex.IShape;
+import spatialindex.spatialindex.Region;
+import spatialindex.spatialindex.SpatialIndex;
 
-import spatialindex.spatialindex.*;
+import java.io.*;
+import java.util.*;
 
 abstract class Node implements INode
 {
@@ -202,7 +205,7 @@ abstract class Node implements INode
 		}
 	}
 
-	protected boolean insertData(byte[] pData, Region mbr, int id, Stack pathBuffer, boolean[] overflowTable)
+	protected boolean insertData(byte[] pData, Region mbr, int id, Stack<Integer> pathBuffer, boolean[] overflowTable)
 	{
 		if (m_children < m_capacity)
 		{
@@ -214,7 +217,7 @@ abstract class Node implements INode
 
 			if (! b && ! pathBuffer.empty())
 			{
-				int cParent = ((Integer) pathBuffer.pop()).intValue();
+				int cParent = pathBuffer.pop();
 				Index p = (Index) m_pTree.readNode(cParent);
 				p.adjustTree(this, pathBuffer);
 				adjusted = true;
@@ -222,11 +225,12 @@ abstract class Node implements INode
 
 			return adjusted;
 		}
-		else if (m_pTree.m_treeVariant == SpatialIndex.RtreeVariantRstar && ! pathBuffer.empty() && overflowTable[m_level] == false)
+		else if (m_pTree.m_treeVariant == SpatialIndex.RtreeVariantRstar && ! pathBuffer.empty() && !overflowTable[m_level])
 		{
 			overflowTable[m_level] = true;
 
-			ArrayList vReinsert = new ArrayList(), vKeep = new ArrayList();
+			List<Integer> vReinsert = new ArrayList<Integer>(),
+                    vKeep = new ArrayList<Integer>();
 			reinsertData(pData, mbr, id, vReinsert, vKeep);
 
 			int lReinsert = vReinsert.size();
@@ -235,7 +239,7 @@ abstract class Node implements INode
 			byte[][] reinsertdata = new byte[lReinsert][];
 			Region[] reinsertmbr = new Region[lReinsert];
 			int[] reinsertid = new int[lReinsert];
-			int[] reinsertlen = new int[lReinsert];
+			//int[] reinsertlen = new int[lReinsert];
 			byte[][] keepdata = new byte[m_capacity + 1][];
 			Region[] keepmbr = new Region[m_capacity + 1];
 			int[] keepid = new int[m_capacity + 1];
@@ -245,8 +249,8 @@ abstract class Node implements INode
 
 			for (cIndex = 0; cIndex < lReinsert; cIndex++)
 			{
-				int i = ((Integer) vReinsert.get(cIndex)).intValue();
-				reinsertlen[cIndex] = m_pDataLength[i];
+				int i = vReinsert.get(cIndex);
+				//reinsertlen[cIndex] = m_pDataLength[i];
 				reinsertdata[cIndex] = m_pData[i];
 				reinsertmbr[cIndex] = m_pMBR[i];
 				reinsertid[cIndex] = m_pIdentifier[i];
@@ -254,7 +258,7 @@ abstract class Node implements INode
 
 			for (cIndex = 0; cIndex < lKeep; cIndex++)
 			{
-				int i = ((Integer) vKeep.get(cIndex)).intValue();
+				int i = vKeep.get(cIndex);
 				keeplen[cIndex] = m_pDataLength[i];
 				keepdata[cIndex] = m_pData[i];
 				keepmbr[cIndex] = m_pMBR[i];
@@ -286,7 +290,7 @@ abstract class Node implements INode
 			// Divertion from R*-Tree algorithm here. First adjust
 			// the path to the root, then start reinserts, to avoid complicated handling
 			// of changes to the same node from multiple insertions.
-			int cParent = ((Integer) pathBuffer.pop()).intValue();
+			int cParent = pathBuffer.pop();
 			Index p = (Index) m_pTree.readNode(cParent);
 			p.adjustTree(this, pathBuffer);
 
@@ -320,8 +324,8 @@ abstract class Node implements INode
 
 				m_pTree.writeNode(r);
 
-				m_pTree.m_stats.m_nodesInLevel.set(m_level, new Integer(2));
-				m_pTree.m_stats.m_nodesInLevel.add(new Integer(1));
+				m_pTree.m_stats.m_nodesInLevel.set(m_level,2);
+				m_pTree.m_stats.m_nodesInLevel.add(1);
 				m_pTree.m_stats.m_treeHeight = m_level + 2;
 			}
 			else
@@ -332,7 +336,7 @@ abstract class Node implements INode
 				m_pTree.writeNode(n);
 				m_pTree.writeNode(nn);
 
-				int cParent = ((Integer) pathBuffer.pop()).intValue();
+				int cParent = pathBuffer.pop();
 				Index p = (Index) m_pTree.readNode(cParent);
 				p.adjustTree(n, nn, pathBuffer, overflowTable);
 			}
@@ -341,7 +345,7 @@ abstract class Node implements INode
 		}
 	}
 
-	protected void reinsertData(byte[] pData, Region mbr, int id, ArrayList reinsert, ArrayList keep)
+	protected void reinsertData(byte[] pData, Region mbr, int id, List<Integer> reinsert, List<Integer> keep)
 	{
 		ReinsertEntry[] v = new ReinsertEntry[m_capacity + 1];
 
@@ -376,16 +380,16 @@ abstract class Node implements INode
 
 		for (cCount = 0; cCount < cReinsert; cCount++)
 		{
-			reinsert.add(new Integer(v[cCount].m_id));
+			reinsert.add(v[cCount].m_id);
 		}
 
 		for (cCount = cReinsert; cCount < m_capacity + 1; cCount++)
 		{
-			keep.add(new Integer(v[cCount].m_id));
+			keep.add(v[cCount].m_id);
 		}
 	}
 
-	protected void rtreeSplit(byte[] pData, Region mbr, int id, ArrayList group1, ArrayList group2)
+	protected void rtreeSplit(byte[] pData, Region mbr, int id, List<Integer> group1, List<Integer> group2)
 	{
 		int cChild;
 		int minimumLoad = (int) Math.floor(m_capacity * m_pTree.m_fillFactor);
@@ -404,8 +408,8 @@ abstract class Node implements INode
 		// initialize each group with the seed entries.
 		int[] seeds = pickSeeds();
 
-		group1.add(new Integer(seeds[0]));
-		group2.add(new Integer(seeds[1]));
+		group1.add(seeds[0]);
+		group2.add(seeds[1]);
 
 		mask[seeds[0]] = true;
 		mask[seeds[1]] = true;
@@ -424,9 +428,9 @@ abstract class Node implements INode
 				// all remaining entries must be assigned to group1 to comply with minimun load requirement.
 				for (cChild = 0; cChild < m_capacity + 1; cChild++)
 				{
-					if (mask[cChild] == false)
+					if (!mask[cChild])
 					{
-						group1.add(new Integer(cChild));
+						group1.add(cChild);
 						mask[cChild] = true;
 						cRemaining--;
 					}
@@ -437,9 +441,9 @@ abstract class Node implements INode
 				// all remaining entries must be assigned to group2 to comply with minimun load requirement.
 				for (cChild = 0; cChild < m_capacity + 1; cChild++)
 				{
-					if (mask[cChild] == false)
+					if (!mask[cChild])
 					{
-						group2.add(new Integer(cChild));
+						group2.add(cChild);
 						mask[cChild] = true;
 						cRemaining--;
 					}
@@ -459,7 +463,7 @@ abstract class Node implements INode
 
 				for (cChild = 0; cChild < m_capacity + 1; cChild++)
 				{
-					if (mask[cChild] == false)
+					if (!mask[cChild])
 					{
 						Region a = mbr1.combinedRegion(m_pMBR[cChild]);
 						d1 = a.getArea() - a1;
@@ -478,41 +482,41 @@ abstract class Node implements INode
 				}
 
 				// determine the group where we should add the new entry.
-				int group = -1;
+				int group;
 
 				if (md1 < md2)
 				{
-					group1.add(new Integer(sel));
+					group1.add(sel);
 					group = 1;
 				}
 				else if (md2 < md1)
 				{
-					group2.add(new Integer(sel));
+					group2.add(sel);
 					group = 2;
 				}
 				else if (a1 < a2)
 				{
-					group1.add(new Integer(sel));
+					group1.add(sel);
 					group = 1;
 				}
 				else if (a2 < a1)
 				{
-					group2.add(new Integer(sel));
+					group2.add(sel);
 					group = 2;
 				}
 				else if (group1.size() < group2.size())
 				{
-					group1.add(new Integer(sel));
+					group1.add(sel);
 					group = 1;
 				}
 				else if (group2.size() < group1.size())
 				{
-					group2.add(new Integer(sel));
+					group2.add(sel);
 					group = 2;
 				}
 				else
 				{
-					group1.add(new Integer(sel));
+					group1.add(sel);
 					group = 1;
 				}
 				mask[sel] = true;
@@ -529,10 +533,10 @@ abstract class Node implements INode
 		}
 	}
 
-	protected void rstarSplit(byte[] pData, Region mbr, int id, ArrayList group1, ArrayList group2)
+	protected void rstarSplit(byte[] pData, Region mbr, int id, List<Integer> group1, List<Integer> group2)
 	{
-		RstarSplitEntry[] dataLow = new RstarSplitEntry[m_capacity + 1];;
-		RstarSplitEntry[] dataHigh = new RstarSplitEntry[m_capacity + 1];;
+		RstarSplitEntry[] dataLow = new RstarSplitEntry[m_capacity + 1];
+		RstarSplitEntry[] dataHigh = new RstarSplitEntry[m_capacity + 1];
 
 		m_pDataLength[m_children] = (pData != null) ? pData.length : 0;
 		m_pData[m_capacity] = pData;
@@ -679,12 +683,12 @@ abstract class Node implements INode
 
 		for (cIndex = 0; cIndex < l1; cIndex++)
 		{
-			group1.add(new Integer(dataLow[cIndex].m_id));
+			group1.add(dataLow[cIndex].m_id);
 		}
 
 		for (cIndex = l1; cIndex <= m_capacity; cIndex++)
 		{
-			group2.add(new Integer(dataLow[cIndex].m_id));
+			group2.add(dataLow[cIndex].m_id);
 		}
 	}
 
@@ -768,7 +772,7 @@ abstract class Node implements INode
 		return ret;
 	}
 
-	protected void condenseTree(Stack toReinsert, Stack pathBuffer)
+	protected void condenseTree(Stack<Node> toReinsert, Stack<Integer> pathBuffer)
 	{
 		int minimumLoad = (int) (Math.floor(m_capacity * m_pTree.m_fillFactor));
 
@@ -785,12 +789,12 @@ abstract class Node implements INode
 				m_pTree.m_stats.m_nodesInLevel.remove(m_pTree.m_stats.m_nodesInLevel.size() - 1);
 				m_pTree.m_stats.m_treeHeight -= 1;
 				// HACK: pending deleteNode for deleted child will decrease nodesInLevel, later on.
-				m_pTree.m_stats.m_nodesInLevel.set(m_pTree.m_stats.m_treeHeight - 1, new Integer(2));
+				m_pTree.m_stats.m_nodesInLevel.set(m_pTree.m_stats.m_treeHeight - 1, 2);
 			}
 		}
 		else
 		{
-			int cParent = ((Integer) pathBuffer.pop()).intValue();
+			int cParent = pathBuffer.pop();
 			Index p = (Index) m_pTree.readNode(cParent);
 
 			// find the entry in the parent, that points to this node.
@@ -867,8 +871,8 @@ abstract class Node implements INode
 			{
 				m_totalDataLength += m_pDataLength[cChild];
 				m_pData[cChild] = new byte[m_pDataLength[cChild]];
-				ds.read(m_pData[cChild]);
-			}
+                ds.read(m_pData[cChild]);
+            }
 			else
 			{
 				m_pData[cChild] = null;

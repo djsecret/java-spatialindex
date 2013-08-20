@@ -29,8 +29,10 @@
 
 package spatialindex.rtree;
 
-import java.util.*;
-import spatialindex.spatialindex.*;
+import spatialindex.spatialindex.IStatistics;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class Statistics implements IStatistics, Cloneable
 {
@@ -44,7 +46,7 @@ public class Statistics implements IStatistics, Cloneable
 	protected long m_queryResults;
 	protected long m_data;
 	protected int m_treeHeight;
-	protected ArrayList m_nodesInLevel = new ArrayList();
+	protected List<Integer> m_nodesInLevel = new ArrayList<Integer>();
 
 	public Statistics()
 	{
@@ -63,7 +65,7 @@ public class Statistics implements IStatistics, Cloneable
 		m_queryResults = s.m_queryResults;
 		m_data = s.m_data;
 		m_treeHeight = s.m_treeHeight;
-		m_nodesInLevel = (ArrayList) s.m_nodesInLevel.clone();
+		m_nodesInLevel = new ArrayList<Integer>(s.m_nodesInLevel);
 	}
 
 	public long getReads()
@@ -118,7 +120,7 @@ public class Statistics implements IStatistics, Cloneable
 
 	public int getNumberOfNodesInLevel(int l) throws IndexOutOfBoundsException
 	{
-		return ((Integer) m_nodesInLevel.get(l)).intValue();
+		return m_nodesInLevel.get(l);
 	}
 
 	public void reset()

@@ -29,11 +29,12 @@
 
 package spatialindex.storagemanager;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class PropertySet
 {
-	private HashMap m_propertySet = new HashMap();
+	private Map<String,Object> m_propertySet = new HashMap<String,Object>();
 
 	public Object getProperty(String property)
 	{

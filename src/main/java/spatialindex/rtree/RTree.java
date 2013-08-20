@@ -29,11 +29,13 @@
 
 package spatialindex.rtree;
 
-import java.util.*;
-import java.io.*;
-
 import spatialindex.spatialindex.*;
-import spatialindex.storagemanager.*;
+import spatialindex.storagemanager.IStorageManager;
+import spatialindex.storagemanager.InvalidPageException;
+import spatialindex.storagemanager.PropertySet;
+
+import java.io.*;
+import java.util.*;
 
 public class RTree implements ISpatialIndex
 {
@@ -73,9 +75,9 @@ public class RTree implements ISpatialIndex
 
 	Statistics m_stats;
 
-	ArrayList m_writeNodeCommands = new ArrayList();
-	ArrayList m_readNodeCommands = new ArrayList();
-	ArrayList m_deleteNodeCommands = new ArrayList();
+	List<INodeCommand> m_writeNodeCommands = new ArrayList<INodeCommand>();
+    List<INodeCommand> m_readNodeCommands = new ArrayList<INodeCommand>();
+    List<INodeCommand> m_deleteNodeCommands = new ArrayList<INodeCommand>();
 
 	public RTree(PropertySet ps, IStorageManager sm)
 	{
@@ -99,7 +101,7 @@ public class RTree implements ISpatialIndex
 		if (var != null)
 		{
 			if (! (var instanceof Integer)) throw new IllegalArgumentException("Property IndexIdentifier must an Integer");
-			m_headerID = ((Integer) var).intValue();
+			m_headerID = ((Integer) var);
 			try
 			{
 				initOld(ps);
@@ -121,8 +123,7 @@ public class RTree implements ISpatialIndex
 				System.err.println(e);
 				throw new IllegalStateException("initNew failed with IOException");
 			}
-			Integer i = new Integer(m_headerID);
-			ps.setProperty("IndexIdentifier", i);
+			ps.setProperty("IndexIdentifier", m_headerID);
 		}
 	}
 
@@ -190,7 +191,7 @@ public class RTree implements ISpatialIndex
 	{
 		if (query.getDimension() != m_dimension) throw new IllegalArgumentException("pointLocationQuery: Shape has the wrong number of dimensions.");
 		
-		Region r = null;
+		Region r;
 		if (query instanceof Point)
 		{
 			r = new Region((Point) query, (Point) query);
@@ -218,7 +219,7 @@ public class RTree implements ISpatialIndex
 			// I need a priority queue here. It turns out that TreeSet sorts unique keys only and since I am
 			// sorting according to distances, it is not assured that all distances will be unique. TreeMap
 			// also sorts unique keys. Thus, I am simulating a priority queue using an ArrayList and binarySearch.
-			ArrayList queue = new ArrayList();
+			List<NNEntry> queue = new ArrayList<NNEntry>();
 
 			Node n = readNode(m_rootID);
 			queue.add(new NNEntry(n, 0.0));
@@ -228,12 +229,12 @@ public class RTree implements ISpatialIndex
 
 			while (queue.size() != 0)
 			{
-				NNEntry first = (NNEntry) queue.remove(0);
+				NNEntry first = queue.remove(0);
 
 				if (first.m_pEntry instanceof Node)
 				{
 					n = (Node) first.m_pEntry;
-					v.visitNode((INode) n);
+					v.visitNode(n);
 
 					for (int cChild = 0; cChild < n.m_children; cChild++)
 					{
@@ -245,7 +246,7 @@ public class RTree implements ISpatialIndex
 						}
 						else
 						{
-							e = (IEntry) readNode(n.m_pIdentifier[cChild]);
+							e = readNode(n.m_pIdentifier[cChild]);
 						}
 
 						NNEntry e2 = new NNEntry(e, nnc.getMinimumDistance(query, e));
@@ -296,7 +297,7 @@ public class RTree implements ISpatialIndex
 				Node n = readNode(next[0]);
 				boolean[] hasNext = new boolean[] {false};
 				qs.getNextEntry(n, next, hasNext);
-				if (hasNext[0] == false) break;
+				if (!hasNext[0]) break;
 			}
 		}
 		finally
@@ -310,28 +311,28 @@ public class RTree implements ISpatialIndex
 		PropertySet pRet = new PropertySet();
 
 		// dimension
-		pRet.setProperty("Dimension", new Integer(m_dimension));
+		pRet.setProperty("Dimension", m_dimension);
 
 		// index capacity
-		pRet.setProperty("IndexCapacity", new Integer(m_indexCapacity));
+		pRet.setProperty("IndexCapacity", m_indexCapacity);
 
 		// leaf capacity
-		pRet.setProperty("LeafCapacity", new Integer(m_leafCapacity));
+		pRet.setProperty("LeafCapacity", m_leafCapacity);
 
 		// R-tree variant
-		pRet.setProperty("TreeVariant", new Integer(m_treeVariant));
+		pRet.setProperty("TreeVariant", m_treeVariant);
 
 		// fill factor
-		pRet.setProperty("FillFactor", new Double(m_fillFactor));
+		pRet.setProperty("FillFactor", m_fillFactor);
 
 		// near minimum overlap factor
-		pRet.setProperty("NearMinimumOverlapFactor", new Integer(m_nearMinimumOverlapFactor));
+		pRet.setProperty("NearMinimumOverlapFactor", m_nearMinimumOverlapFactor);
 
 		// split distribution factor
-		pRet.setProperty("SplitDistributionFactor", new Double(m_splitDistributionFactor));
+		pRet.setProperty("SplitDistributionFactor", m_splitDistributionFactor);
 
 		// reinsert factor
-		pRet.setProperty("ReinsertFactor", new Double(m_reinsertFactor));
+		pRet.setProperty("ReinsertFactor", m_reinsertFactor);
 
 		return pRet;
 	}
@@ -354,7 +355,7 @@ public class RTree implements ISpatialIndex
 	public boolean isIndexValid()
 	{
 		boolean ret = true;
-		Stack st = new Stack();
+		Stack<ValidateEntry> st = new Stack<ValidateEntry>();
 		Node root = readNode(m_rootID);
 
 		if (root.m_level != m_stats.m_treeHeight - 1)
@@ -363,15 +364,15 @@ public class RTree implements ISpatialIndex
 			return false;
 		}
 
-		HashMap nodesInLevel = new HashMap();
-		nodesInLevel.put(new Integer(root.m_level), new Integer(1));
+		Map<Integer,Integer> nodesInLevel = new HashMap<Integer, Integer>();
+		nodesInLevel.put(root.m_level, 1);
 
 		ValidateEntry e = new ValidateEntry(root.m_nodeMBR, root);
 		st.push(e);
 
 		while (! st.empty())
 		{
-			e = (ValidateEntry) st.pop();
+			e = st.pop();
 
 			Region tmpRegion = (Region) m_infiniteRegion.clone();
 
@@ -404,14 +405,14 @@ public class RTree implements ISpatialIndex
 				{
 					ValidateEntry tmpEntry = new ValidateEntry(e.m_pNode.m_pMBR[cChild], readNode(e.m_pNode.m_pIdentifier[cChild]));
 
-					if (! nodesInLevel.containsKey(new Integer(tmpEntry.m_pNode.m_level)))
+					if (! nodesInLevel.containsKey(tmpEntry.m_pNode.m_level))
 					{
-						nodesInLevel.put(new Integer(tmpEntry.m_pNode.m_level), new Integer(1));
+						nodesInLevel.put(tmpEntry.m_pNode.m_level, 1);
 					}
 					else
 					{
-						int i = ((Integer) nodesInLevel.get(new Integer(tmpEntry.m_pNode.m_level))).intValue();
-						nodesInLevel.put(new Integer(tmpEntry.m_pNode.m_level), new Integer(i + 1));
+						int i = nodesInLevel.get(tmpEntry.m_pNode.m_level);
+						nodesInLevel.put(tmpEntry.m_pNode.m_level, i + 1);
 					}
 
 					st.push(tmpEntry);
@@ -422,8 +423,8 @@ public class RTree implements ISpatialIndex
 		int nodes = 0;
 		for (int cLevel = 0; cLevel < m_stats.m_treeHeight; cLevel++)
 		{
-			int i1 = ((Integer) nodesInLevel.get(new Integer(cLevel))).intValue();
-			int i2 = ((Integer) m_stats.m_nodesInLevel.get(cLevel)).intValue();
+			int i1 = nodesInLevel.get(cLevel);
+			int i2 = m_stats.m_nodesInLevel.get(cLevel);
 			if (i1 != i2)
 			{
 				System.err.println("Invalid nodesInLevel information");
@@ -475,7 +476,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Integer)
 			{
-				int i = ((Integer) var).intValue();
+				int i = ((Integer) var);
 				if (i != SpatialIndex.RtreeVariantLinear &&  i != SpatialIndex.RtreeVariantQuadratic && i != SpatialIndex.RtreeVariantRstar)
 					throw new IllegalArgumentException("Property TreeVariant not a valid variant");
 				m_treeVariant = i;
@@ -492,7 +493,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Double)
 			{
-				double f = ((Double) var).doubleValue();
+				double f = ((Double) var);
 				if (f <= 0.0f || f >= 1.0f)
 					throw new IllegalArgumentException("Property FillFactor must be in (0.0, 1.0)");
 				m_fillFactor = f;
@@ -509,7 +510,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Integer)
 			{
-				int i = ((Integer) var).intValue();
+				int i = ((Integer) var);
 				if (i < 3) throw new IllegalArgumentException("Property IndexCapacity must be >= 3");
 				m_indexCapacity = i;
 			}
@@ -525,7 +526,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Integer)
 			{
-				int i = ((Integer) var).intValue();
+				int i = ((Integer) var);
 				if (i < 3) throw new IllegalArgumentException("Property LeafCapacity must be >= 3");
 				m_leafCapacity = i;
 			}
@@ -541,7 +542,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Integer)
 			{
-				int i = ((Integer) var).intValue();
+				int i = ((Integer) var);
 				if (i < 1 || i > m_indexCapacity || i > m_leafCapacity)
 					throw new IllegalArgumentException("Property NearMinimumOverlapFactor must be less than both index and leaf capacities");
 			m_nearMinimumOverlapFactor = i;
@@ -558,7 +559,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Double)
 			{
-				double f = ((Double) var).doubleValue();
+				double f = ((Double) var);
 				if (f <= 0.0f || f >= 1.0f)
 					throw new IllegalArgumentException("Property SplitDistributionFactor must be in (0.0, 1.0)");
 				m_splitDistributionFactor = f;
@@ -575,7 +576,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Double)
 			{
-				double f = ((Double) var).doubleValue();
+				double f = ((Double) var);
 				if (f <= 0.0f || f >= 1.0f)
 					throw new IllegalArgumentException("Property ReinsertFactor must be in (0.0, 1.0)");
 				m_reinsertFactor = f;
@@ -592,7 +593,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Integer)
 			{
-				int i = ((Integer) var).intValue();
+				int i = ((Integer) var);
 				if (i <= 1) throw new IllegalArgumentException("Property Dimension must be >= 1");
 				m_dimension = i;
 			}
@@ -612,7 +613,7 @@ public class RTree implements ISpatialIndex
 		}
 
 		m_stats.m_treeHeight = 1;
-		m_stats.m_nodesInLevel.add(new Integer(0));
+		m_stats.m_nodesInLevel.add(0);
 
 		Leaf root = new Leaf(this, -1);
 		m_rootID = writeNode(root);
@@ -635,7 +636,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Integer)
 			{
-				int i = ((Integer) var).intValue();
+				int i = ((Integer) var);
 				if (i != SpatialIndex.RtreeVariantLinear &&  i != SpatialIndex.RtreeVariantQuadratic && i != SpatialIndex.RtreeVariantRstar)
 					throw new IllegalArgumentException("Property TreeVariant not a valid variant");
 				m_treeVariant = i;
@@ -652,7 +653,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Integer)
 			{
-				int i = ((Integer) var).intValue();
+				int i = ((Integer) var);
 				if (i < 1 || i > m_indexCapacity || i > m_leafCapacity)
 					throw new IllegalArgumentException("Property NearMinimumOverlapFactor must be less than both index and leaf capacities");
 				m_nearMinimumOverlapFactor = i;
@@ -669,7 +670,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Double)
 			{
-				double f = ((Double) var).doubleValue();
+				double f = ((Double) var);
 				if (f <= 0.0f || f >= 1.0f)
 					throw new IllegalArgumentException("Property SplitDistributionFactor must be in (0.0, 1.0)");
 				m_splitDistributionFactor = f;
@@ -686,7 +687,7 @@ public class RTree implements ISpatialIndex
 		{
 			if (var instanceof Double)
 			{
-				double f = ((Double) var).doubleValue();
+				double f = ((Double) var);
 				if (f <= 0.0f || f >= 1.0f)
 					throw new IllegalArgumentException("Property ReinsertFactor must be in (0.0, 1.0)");
 				m_reinsertFactor = f;
@@ -727,7 +728,7 @@ public class RTree implements ISpatialIndex
 
 		for (int cLevel = 0; cLevel < m_stats.m_treeHeight; cLevel++)
 		{
-			ds.writeInt(((Integer) m_stats.m_nodesInLevel.get(cLevel)).intValue());
+			ds.writeInt(m_stats.m_nodesInLevel.get(cLevel));
 		}
 
 		ds.flush();
@@ -754,7 +755,7 @@ public class RTree implements ISpatialIndex
 
 		for (int cLevel = 0; cLevel < m_stats.m_treeHeight; cLevel++)
 		{
-			m_stats.m_nodesInLevel.add(new Integer(ds.readInt()));
+			m_stats.m_nodesInLevel.add(ds.readInt());
 		}
 	}
 
@@ -764,7 +765,7 @@ public class RTree implements ISpatialIndex
 
 		boolean[] overflowTable;
 
-		Stack pathBuffer = new Stack();
+		Stack<Integer> pathBuffer = new Stack<Integer>();
 
 		Node root = readNode(m_rootID);
 
@@ -781,7 +782,7 @@ public class RTree implements ISpatialIndex
 	{
 		assert mbr.getDimension() == m_dimension;
 
-		Stack pathBuffer = new Stack();
+		Stack<Integer> pathBuffer = new Stack<Integer>();
 
 		Node root = readNode(m_rootID);
 		Node n = root.chooseSubtree(mbr, level, pathBuffer);
@@ -794,7 +795,7 @@ public class RTree implements ISpatialIndex
 
 		boolean bRet = false;
 
-		Stack pathBuffer = new Stack();
+		Stack<Integer> pathBuffer = new Stack<Integer>();
 
 		Node root = readNode(m_rootID);
 		Leaf l = root.findLeaf(mbr, id, pathBuffer);
@@ -811,7 +812,7 @@ public class RTree implements ISpatialIndex
 
 	protected int writeNode(Node n) throws IllegalStateException
 	{
-		byte[] buffer = null;
+		byte[] buffer;
 
 		try
 		{
@@ -841,16 +842,13 @@ public class RTree implements ISpatialIndex
 		{
 			n.m_identifier = page;
 			m_stats.m_nodes++;
-			int i = ((Integer) m_stats.m_nodesInLevel.get(n.m_level)).intValue();
-			m_stats.m_nodesInLevel.set(n.m_level, new Integer(i + 1));
+			int i = m_stats.m_nodesInLevel.get(n.m_level);
+			m_stats.m_nodesInLevel.set(n.m_level, i + 1);
 		}
 
 		m_stats.m_writes++;
 
-		for (int cIndex = 0; cIndex < m_writeNodeCommands.size(); cIndex++)
-		{
-			((INodeCommand) m_writeNodeCommands.get(cIndex)).execute(n);
-		}
+        for (INodeCommand m_writeNodeCommand : m_writeNodeCommands) m_writeNodeCommand.execute(n);
 
 		return page;
 	}
@@ -858,9 +856,9 @@ public class RTree implements ISpatialIndex
 	protected Node readNode(int id)
 	{
 		byte[] buffer;
-		DataInputStream ds = null;
-		int nodeType = -1;
-		Node n = null;
+		DataInputStream ds;
+		int nodeType;
+		Node n;
 
 		try
 		{
@@ -889,10 +887,7 @@ public class RTree implements ISpatialIndex
 			throw new IllegalStateException("readNode failed with IOException");
 		}
 
-		for (int cIndex = 0; cIndex < m_readNodeCommands.size(); cIndex++)
-		{
-			((INodeCommand) m_readNodeCommands.get(cIndex)).execute(n);
-		}
+        for (INodeCommand m_readNodeCommand : m_readNodeCommands) m_readNodeCommand.execute(n);
 
 		return n;
 	}
@@ -910,13 +905,10 @@ public class RTree implements ISpatialIndex
 		}
 
 		m_stats.m_nodes--;
-		int i = ((Integer) m_stats.m_nodesInLevel.get(n.m_level)).intValue();
-		m_stats.m_nodesInLevel.set(n.m_level, new Integer(i - 1));
+		int i = m_stats.m_nodesInLevel.get(n.m_level);
+		m_stats.m_nodesInLevel.set(n.m_level, i - 1);
 
-		for (int cIndex = 0; cIndex < m_deleteNodeCommands.size(); cIndex++)
-		{
-			((INodeCommand) m_deleteNodeCommands.get(cIndex)).execute(n);
-		}
+        for (INodeCommand m_deleteNodeCommand : m_deleteNodeCommands) m_deleteNodeCommand.execute(n);
 	}
 
 	private void rangeQuery(int type, final IShape query, final IVisitor v)
@@ -925,18 +917,18 @@ public class RTree implements ISpatialIndex
 
 		try
 		{
-			Stack st = new Stack();
+			Stack<Node> st = new Stack<Node>();
 			Node root = readNode(m_rootID);
 
 			if (root.m_children > 0 && query.intersects(root.m_nodeMBR)) st.push(root);
 
 			while (! st.empty())
 			{
-				Node n = (Node) st.pop();
+				Node n = st.pop();
 
 				if (n.m_level == 0)
 				{
-					v.visitNode((INode) n);
+					v.visitNode(n);
 
 					for (int cChild = 0; cChild < n.m_children; cChild++)
 					{
@@ -954,7 +946,7 @@ public class RTree implements ISpatialIndex
 				}
 				else
 				{
-					v.visitNode((INode) n);
+					v.visitNode(n);
 
 					for (int cChild = 0; cChild < n.m_children; cChild++)
 					{

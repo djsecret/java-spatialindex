@@ -326,11 +326,10 @@ public class Region implements IShape
 			mn[cDim] = Double.POSITIVE_INFINITY;
 			mx[cDim] = Double.NEGATIVE_INFINITY;
 
-			for (int cIndex = 0; cIndex < pRegions.length; cIndex++)
-			{
-				mn[cDim] = Math.min(mn[cDim], pRegions[cIndex].m_pLow[cDim]);
-				mx[cDim] = Math.max(mx[cDim], pRegions[cIndex].m_pHigh[cDim]);
-			}
+            for (Region pRegion : pRegions) {
+                mn[cDim] = Math.min(mn[cDim], pRegion.m_pLow[cDim]);
+                mx[cDim] = Math.max(mx[cDim], pRegion.m_pHigh[cDim]);
+            }
 		}
 
 		return new Region(mn, mx);
@@ -378,11 +377,11 @@ public class Region implements IShape
 	{
 		String s = "";
 
-		for (int cIndex = 0; cIndex < m_pLow.length; cIndex++) s += m_pLow[cIndex] + " ";
+        for (double aM_pLow : m_pLow) s += aM_pLow + " ";
 
 		s += ": ";
 
-		for (int cIndex = 0; cIndex < m_pHigh.length; cIndex++) s += m_pHigh[cIndex] + " ";
+        for (double aM_pHigh : m_pHigh) s += aM_pHigh + " ";
 
 		return s;
 	}

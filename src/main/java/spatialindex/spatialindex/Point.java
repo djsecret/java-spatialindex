@@ -80,10 +80,8 @@ public class Point implements IShape, Cloneable
 
 	public boolean intersects(final IShape s)
 	{
-		if (s instanceof Region) return ((Region) s).contains(this);
-
-		return false;
-	}
+        return s instanceof Region && ((Region) s).contains(this);
+    }
 
 	public boolean contains(final IShape s)
 	{
@@ -94,10 +92,8 @@ public class Point implements IShape, Cloneable
 	{
 		if (s instanceof Point && this.equals(s)) return true;
 
-		if (s instanceof Region) return ((Region) s).touches(this);
-
-		return false;
-	}
+        return s instanceof Region && ((Region) s).touches(this);
+    }
 
 	public double[] getCenter()
 	{
