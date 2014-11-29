@@ -29,6 +29,8 @@
 
 package spatialindex.spatialindex;
 
+import java.util.Arrays;
+
 public class Point implements IShape, Cloneable
 {
 	public double[] m_pCoords = null;
@@ -145,4 +147,10 @@ public class Point implements IShape, Cloneable
 		if (index >= m_pCoords.length) throw new IndexOutOfBoundsException("" + index);
 		return m_pCoords[index];
 	}
+
+    @Override
+    public String toString()
+    {
+        return Arrays.toString(m_pCoords);
+    }
 }

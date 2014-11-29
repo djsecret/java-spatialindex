@@ -920,7 +920,14 @@ public class RTree implements ISpatialIndex
 			Stack<Node> st = new Stack<Node>();
 			Node root = readNode(m_rootID);
 
-			if (root.m_children > 0 && query.intersects(root.m_nodeMBR)) st.push(root);
+			if (root.m_children > 0 && query.intersects(root.m_nodeMBR))
+            {
+                st.push(root);
+            }
+            else
+            {
+                System.err.println(query.toString() + " not found");
+            }
 
 			while (! st.empty())
 			{
@@ -942,6 +949,7 @@ public class RTree implements ISpatialIndex
 							v.visitData(data);
 							m_stats.m_queryResults++;
 						}
+
 					}
 				}
 				else
@@ -1034,9 +1042,14 @@ public class RTree implements ISpatialIndex
 		public IShape getShape() { return new Region(m_shape); }
 		public byte[] getData()
 		{
-			byte[] data = new byte[m_pData.length];
-			System.arraycopy(m_pData, 0, data, 0, m_pData.length);
-			return data;
+            if(m_pData != null)
+            {
+                byte[] data = new byte[m_pData.length];
+                System.arraycopy(m_pData, 0, data, 0, m_pData.length);
+                return data;
+            }
+            return null;
+
 		}
 	}
 }

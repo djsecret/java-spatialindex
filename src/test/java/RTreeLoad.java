@@ -1,11 +1,13 @@
 // NOTE: Please read README.txt before browsing this code.
 
-import java.io.*;
-import java.util.*;
-
+import spatialindex.rtree.RTree;
 import spatialindex.spatialindex.*;
 import spatialindex.storagemanager.*;
-import spatialindex.rtree.*;
+
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.LineNumberReader;
+import java.util.StringTokenizer;
 
 public class RTreeLoad
 {
@@ -50,7 +52,7 @@ public class RTreeLoad
 			ps.setProperty("PageSize", i);
 				// specify the page size. Since the index may also contain user defined data
 				// there is no way to know how big a single node may become. The storage manager
-				// will use multiple pages per node if needed. Off course this will slow down performance.
+				// will use multiple pages per node if needed. Of course this will slow down performance.
 
 			IStorageManager diskfile = new DiskStorageManager(ps);
 
