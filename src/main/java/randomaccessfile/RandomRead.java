@@ -9,7 +9,7 @@ import java.io.RandomAccessFile;
  */
 public class RandomRead
 {
-
+    public static final int BUFFER_SIZE = 100;
     /**
      * 随机读取文件内容
      *
@@ -23,11 +23,39 @@ public class RandomRead
             System.out.println("readFileByRandomAccess:");
             randomFile = new RandomAccessFile(fileName, "r");
             long fileLength = randomFile.length();
-            int beginIndex = (fileLength > 4) ? 4 : 0;
+            int beginIndex = (fileLength > 90) ? 1870 : 0;
+            //randomFile.seek(beginIndex);
+//            int templ = randomFile.readLine().length();
+//            System.out.println("length:" + templ);
+            byte[] buffer = new byte[BUFFER_SIZE];
             randomFile.seek(beginIndex);
-            System.out.println(new String(randomFile.readLine().getBytes("UTF-8"),"GBK"));
-            //System.out.println("11;2014/11/29 9:43:19;pac10141113-clean;70.13247;40.30872;16.006 ;28.258 ;good;Utf-8".length());
-            System.out.println("12;2014/11/29 9:43:19;pac10141113-clean;71.1502;41.06893;17.092 ;27.450 ;good;Utf-7".length());
+            byte c = -1;
+            boolean eol = false;
+            int index = 0;
+
+            while (!eol)
+            {
+                switch (c = (byte)randomFile.read())
+                {
+                    case -1:
+                    case '\n':
+                        eol = true;
+                        break;
+                    case '\r':
+                        eol = true;
+                        long cur = randomFile.getFilePointer();
+                        if ((randomFile.read()) != '\n')
+                        {
+                            randomFile.seek(cur);
+                        }
+                        break;
+                    default:
+                        buffer[index++] = c;
+                        break;
+                }
+            }
+            System.out.println(index);
+            System.out.println(new String(buffer,0,index));
 
         } catch (IOException e)
         {
@@ -49,7 +77,7 @@ public class RandomRead
 
     public static void main(String[] args)
     {
-        RandomRead.readFileByRandomAccess("testdata.csv");
+        RandomRead.readFileByRandomAccess("data.csv");
     }
 
 }
